@@ -1,63 +1,42 @@
-import { useState, useEffect } from "react";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { useEffect, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
-import Login from "./components/Login";
-import ChatList from "./components/ChatList";
-import ChatRoom from "./components/ChatRoom";
 
-function App() {
+import Login from "./pages/Login";
+import ResetPassword from "./pages/ResetPassword";
+import ChatApp from "./components/ChatApp";
+
+export default function App() {
   const [user, setUser] = useState(null);
-  const [activeChatId, setActiveChatId] = useState(null);
-  const [chatPartner, setChatPartner] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setLoading(false);
     });
-    return () => unsub();
+    return unsub;
   }, []);
 
-  const logout = () => {
-    signOut(auth);
-    setUser(null);
-    setActiveChatId(null);
-  };
+  if (loading) return <div className="p-4">Loading…</div>;
 
   return (
-    <div className="min-h-screen bg-[#fff0f6] font-sans">
-      {!user ? (
-        <Login onLogin={(u) => setUser(u)} />
-      ) : !activeChatId ? (
-        <>
-          <div className="flex justify-between items-center p-4 bg-[#ffb6d9] border-b border-[#ff80c9] shadow-md">
-            <h1 className="text-2xl font-bold text-[#9b1859] tracking-wide">
-              Short n’ Sweet 💋
-            </h1>
-            <button
-              onClick={logout}
-              className="text-white bg-[#ff5ca2] px-4 py-1 rounded-full font-medium hover:bg-[#ff3d94] transition"
-            >
-              Logout
-            </button>
-          </div>
-          <ChatList
-            user={user}
-            onSelectChat={(chatId, otherUser) => {
-              setActiveChatId(chatId);
-              setChatPartner(otherUser);
-            }}
-          />
-        </>
-      ) : (
-        <ChatRoom
-          user={user}
-          chatId={activeChatId}
-          chatPartner={chatPartner}
-          onBack={() => setActiveChatId(null)}
+    <Router>
+      <Routes>
+        <Route
+          path="/"
+          element={user ? <ChatApp user={user} /> : <Navigate to="/login" />}
         />
-      )}
-    </div>
+        <Route path="/login" element={<Login onLogin={setUser} />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="*" element={<Navigate to={user ? "/" : "/login"} />} />
+      </Routes>
+    </Router>
   );
 }
-
-export default App;

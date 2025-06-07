@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   onSnapshot,
   orderBy,
+  deleteDoc,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { format } from "date-fns";
@@ -19,7 +20,6 @@ export default function ChatList({ user, onSelectChat }) {
   const [chatHistory, setChatHistory] = useState([]);
 
   useEffect(() => {
-    // Load all users
     const fetchAllUsers = async () => {
       const q = query(collection(db, "users"));
       const snapshot = await getDocs(q);
@@ -28,14 +28,13 @@ export default function ChatList({ user, onSelectChat }) {
           id: doc.id,
           ...doc.data(),
         }))
-        .filter((u) => u.id !== user.uid); // exclude self
+        .filter((u) => u.id !== user.uid);
       setAllUsers(users);
     };
     fetchAllUsers();
   }, [user.uid]);
 
   useEffect(() => {
-    // Realtime chat updates
     const unsubscribe = onSnapshot(collection(db, "chats"), (snapshot) => {
       const chats = snapshot.docs.filter((doc) =>
         (doc.data().users || []).includes(user.uid),
@@ -57,7 +56,7 @@ export default function ChatList({ user, onSelectChat }) {
               ? userDoc.data()
               : { email: "Unknown" };
 
-            const msgs = msgSnap.docs.map((d) => d.data());
+            const msgs = msgSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
             const unread = msgs.filter(
               (m) =>
                 m.senderId === partnerId &&
@@ -113,6 +112,20 @@ export default function ChatList({ user, onSelectChat }) {
     onSelectChat(chatId, otherUser);
   };
 
+  const deleteChat = async (chatId) => {
+    const confirm = window.confirm(
+      "Are you sure you want to delete this chat?",
+    );
+    if (!confirm) return;
+
+    const messagesRef = collection(db, "chats", chatId, "messages");
+    const snap = await getDocs(messagesRef);
+    await Promise.all(snap.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+    await deleteDoc(doc(db, "chats", chatId));
+
+    setChatHistory((prev) => prev.filter((chat) => chat.id !== chatId));
+  };
+
   const filteredUsers = allUsers.filter((u) =>
     (u.name || u.email || "").toLowerCase().includes(searchQuery.toLowerCase()),
   );
@@ -159,16 +172,16 @@ export default function ChatList({ user, onSelectChat }) {
           <ul className="space-y-3">
             {chatHistory.map((chat) => (
               <li key={chat.id}>
-                <button
-                  onClick={() =>
-                    onSelectChat(chat.id, {
-                      id: chat.partnerId,
-                      ...chat.partner,
-                    })
-                  }
-                  className="w-full flex justify-between items-center p-3 bg-[#ffe0f0] text-[#9b1859] rounded-xl hover:bg-[#ffc4dc] transition shadow-sm"
-                >
-                  <div className="text-left">
+                <div className="w-full flex justify-between items-center p-3 bg-[#ffe0f0] text-[#9b1859] rounded-xl hover:bg-[#ffc4dc] transition shadow-sm">
+                  <div
+                    onClick={() =>
+                      onSelectChat(chat.id, {
+                        id: chat.partnerId,
+                        ...chat.partner,
+                      })
+                    }
+                    className="flex-1 text-left cursor-pointer"
+                  >
                     <div>{chat.partner.name || chat.partner.email}</div>
                     <div className="text-xs text-[#c16a95] mt-1">
                       {chat.lastTimestamp?.toDate
@@ -176,12 +189,20 @@ export default function ChatList({ user, onSelectChat }) {
                         : ""}
                     </div>
                   </div>
-                  {chat.unread > 0 && (
-                    <span className="text-sm bg-red-500 text-white rounded-full px-2 py-0.5 shadow">
-                      {chat.unread}
-                    </span>
-                  )}
-                </button>
+                  <div className="flex items-center gap-2">
+                    {chat.unread > 0 && (
+                      <span className="text-sm bg-red-500 text-white rounded-full px-2 py-0.5 shadow">
+                        {chat.unread}
+                      </span>
+                    )}
+                    <button
+                      onClick={() => deleteChat(chat.id)}
+                      className="px-3 py-2 text-base text-red-600 hover:text-red-800"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
               </li>
             ))}
           </ul>
