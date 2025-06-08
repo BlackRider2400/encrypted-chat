@@ -27,16 +27,18 @@ export default function App() {
   if (loading) return <div className="p-4">Loading…</div>;
 
   return (
-    <Router>
-      <Routes>
-        <Route
-          path="/"
-          element={user ? <ChatApp user={user} /> : <Navigate to="/login" />}
-        />
-        <Route path="/login" element={<Login onLogin={setUser} />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="*" element={<Navigate to={user ? "/" : "/login"} />} />
-      </Routes>
-    </Router>
+    <div className="h-dvh bg-[#fff0f6]">
+      <Router basename="/chatapp">
+        <Routes>
+          <Route
+            path="/"
+            element={user ? <ChatApp user={user} /> : <Navigate to="/login" />}
+          />
+          <Route path="/login" element={<Login onLogin={setUser} />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="*" element={<Navigate to={user ? "/" : "/login"} />} />
+        </Routes>
+      </Router>
+    </div>
   );
 }

@@ -68,14 +68,16 @@ export default function Login({ onLogin }) {
         onLogin(user);
         navigate("/");
       } catch (err) {
-        alert(err.message);
+        //alert(err.message);
       }
     }
   };
 
   const handleGoogle = async () => {
     try {
-      const result = await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider).then(() => {
+        window.location.href = "/chatapp/";
+      });
       const user = result.user;
       await setDoc(
         doc(db, "users", user.uid),
@@ -98,7 +100,9 @@ export default function Login({ onLogin }) {
       return;
     }
     try {
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordResetEmail(auth, email, {
+        url: "https://mylovelyserver.fun/chatapp/reset-password",
+      });
       alert("Password reset email sent.");
     } catch (err) {
       alert(err.message);
@@ -106,8 +110,8 @@ export default function Login({ onLogin }) {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-[#fff0f6] p-4 font-sans">
-      <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm border border-[#ff80c9]">
+    <div className="flex flex-col items-center justify-center h-dvh bg-[#fff0f6] p-4 font-sans">
+      <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm border border-[#ff80c9] mx-auto">
         <h1 className="text-3xl font-bold mb-6 text-center text-[#9b1859]">
           Short n’ Sweet 💋
         </h1>

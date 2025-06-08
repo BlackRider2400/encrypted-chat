@@ -31,7 +31,7 @@ export default function ResetPassword() {
     "w-full px-4 py-2 border border-pink-300 rounded-full mb-3 focus:outline-none";
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-pink-50 p-4">
+    <div className="flex items-center justify-center h-dvh bg-pink-50 p-4">
       <form
         onSubmit={go}
         className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md border border-pink-300"
