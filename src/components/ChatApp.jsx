@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { signOut } from "firebase/auth";
-import { auth } from "../firebase";
 import ChatList from "./ChatList";
 import ChatRoom from "./ChatRoom";
 
 export default function ChatApp({ user }) {
   const [chatId, setChat] = useState(null);
   const [partner, setPartner] = useState(null);
+  
+  const signOut = () => {
+    
+  };
 
   return chatId ? (
     <ChatRoom
@@ -23,7 +25,7 @@ export default function ChatApp({ user }) {
         </h1>
         <button
           onClick={() =>
-            confirm("Do you really want to log out?") ? signOut(auth) : ""
+            confirm("Do you really want to log out?") ? signOut() : ""
           }
           className="text-white bg-pink-500 px-3 sm:px-4 py-1 rounded-full hover:bg-pink-600 flex-shrink-0"
         >

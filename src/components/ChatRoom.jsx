@@ -1,22 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import {
-  collection,
-  query,
-  orderBy,
-  limitToLast,
-  endBefore,
-  getDocs,
-  addDoc,
-  serverTimestamp,
-  updateDoc,
-  deleteDoc,
-  doc,
-  onSnapshot,
-} from "firebase/firestore";
-import { db } from "../firebase";
 import { format } from "date-fns";
-
-const PAGE_SIZE = 20;
 
 export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
   const [messages, setMessages] = useState([]);
@@ -26,89 +9,32 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
 
+  // Effect when it is rendered and then when chatId or user.uid changes.
+
   useEffect(() => {
     setTimeout(() => {
       textareaRef.current?.focus();
     }, 300);
 
-    const q = query(
-      collection(db, "chats", chatId, "messages"),
-      orderBy("timestamp", "asc"),
-      limitToLast(PAGE_SIZE),
+    // TODO implement effect for setting up synchronizing for messages
+    setTimeout(
+      () =>
+        scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }),
+      100,
     );
-    const unsub = onSnapshot(q, (snap) => {
-      const msgs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setMessages(msgs);
-      if (msgs.length > 0) setOldestDoc(snap.docs[0]);
-      setTimeout(
-        () =>
-          scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }),
-        100,
-      );
-      snap.docs.forEach(async (docSnap) => {
-        const data = docSnap.data();
-        if (!data.readBy?.includes(user.uid)) {
-          await updateDoc(docSnap.ref, {
-            readBy: [...(data.readBy || []), user.uid],
-          });
-        }
-      });
-    });
-    return () => unsub();
   }, [chatId, user.uid]);
-
-  const fetchOlder = async () => {
-    if (!oldestDoc || !hasMore) return;
-    const olderQuery = query(
-      collection(db, "chats", chatId, "messages"),
-      orderBy("timestamp", "asc"),
-      endBefore(oldestDoc),
-      limitToLast(PAGE_SIZE),
-    );
-    const snap = await getDocs(olderQuery);
-    if (snap.empty) {
-      setHasMore(false);
-      return;
-    }
-    const olderMsgs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    for (const docSnap of snap.docs) {
-      const data = docSnap.data();
-      if (!data.readBy?.includes(user.uid)) {
-        await updateDoc(docSnap.ref, {
-          readBy: [...(data.readBy || []), user.uid],
-        });
-      }
-    }
-    setMessages((prev) => [...olderMsgs, ...prev]);
-    setOldestDoc(snap.docs[0]);
-    if (snap.docs.length < PAGE_SIZE) setHasMore(false);
-  };
-
-  const handleScroll = () => {
-    const el = scrollRef.current;
-    if (el && el.scrollTop < 80 && hasMore) {
-      fetchOlder();
-    }
-  };
 
   const handleSend = async () => {
     const text = newMsg.trim();
     if (!text) return;
-    setNewMsg("");
-    textareaRef.current.style.height = "auto";
-    await addDoc(collection(db, "chats", chatId, "messages"), {
-      text,
-      senderId: user.uid,
-      timestamp: serverTimestamp(),
-      readBy: [user.uid],
-    });
-    
+    // TODO call api to send message
+
     textareaRef.current?.focus();
   };
 
   const deleteMessage = async (id) => {
     if (window.confirm("Delete this message?")) {
-      await deleteDoc(doc(db, "chats", chatId, "messages", id));
+      // TODO call api to delete message with ID
       setMessages((prev) => prev.filter((m) => m.id !== id));
     }
   };
@@ -142,7 +68,6 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
 
       <div
         ref={scrollRef}
-        onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-4 py-3 space-y-2 bg-[#fff0f6] min-h-0"
       >
         {messages.map((msg) => (

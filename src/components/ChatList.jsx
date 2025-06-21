@@ -1,19 +1,4 @@
 import { useEffect, useState } from "react";
-import {
-  collection,
-  getDocs,
-  query,
-  doc,
-  getDoc,
-  setDoc,
-  serverTimestamp,
-  onSnapshot,
-  orderBy,
-  updateDoc,
-  deleteDoc,
-  arrayUnion,
-} from "firebase/firestore";
-import { db } from "../firebase";
 import { format } from "date-fns";
 
 export default function ChatList({ user, onSelectChat }) {
@@ -22,107 +7,8 @@ export default function ChatList({ user, onSelectChat }) {
   const [chatHistory, setChatHistory] = useState([]);
 
   useEffect(() => {
-    const fetchAllUsers = async () => {
-      const q = query(collection(db, "users"));
-      const snapshot = await getDocs(q);
-      const users = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .filter((u) => u.id !== user.uid);
-      setAllUsers(users);
-    };
-    fetchAllUsers();
+    // TODO get all conversations for user
   }, [user.uid]);
-
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "chats"), (snapshot) => {
-      const chats = snapshot.docs.filter((doc) => {
-        const data = doc.data();
-        return (
-          data.users?.includes(user.uid) &&
-          !(data.deletedFor || []).includes(user.uid)
-        );
-      });
-
-      const unsubMessages = [];
-
-      chats.forEach((chatDoc) => {
-        const chatId = chatDoc.id;
-        const chatUsers = chatDoc.data().users || [];
-        const deletedFor = chatDoc.data().deletedFor || [];
-        const partnerId = chatUsers.find((uid) => uid !== user.uid);
-
-        const messagesRef = collection(db, "chats", chatId, "messages");
-        const unsub = onSnapshot(
-          query(messagesRef, orderBy("timestamp", "asc")),
-          async (msgSnap) => {
-            const userDoc = await getDoc(doc(db, "users", partnerId));
-            const partner = userDoc.exists()
-              ? userDoc.data()
-              : { email: "Unknown" };
-
-            const msgs = msgSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-            const unread = msgs.filter(
-              (m) =>
-                m.senderId === partnerId &&
-                !(m.readBy || []).includes(user.uid),
-            ).length;
-            const lastMsg = msgs[msgs.length - 1];
-            const lastTimestamp = lastMsg?.timestamp || null;
-
-            setChatHistory((prev) => {
-              const others = prev.filter((c) => c.id !== chatId);
-              const updated = [
-                ...others,
-                {
-                  id: chatId,
-                  partnerId,
-                  partner,
-                  unread,
-                  lastTimestamp,
-                },
-              ];
-              return updated.sort((a, b) => {
-                const ta = a.lastTimestamp?.toMillis?.() || 0;
-                const tb = b.lastTimestamp?.toMillis?.() || 0;
-                return tb - ta;
-              });
-            });
-          },
-        );
-
-        unsubMessages.push(unsub);
-      });
-
-      return () => unsubMessages.forEach((unsub) => unsub());
-    });
-
-    return () => unsubscribe();
-  }, [user.uid]);
-
-  const getChatId = (uid1, uid2) => [uid1, uid2].sort().join("_");
-
-  const startChat = async (otherUser) => {
-    const chatId = getChatId(user.uid, otherUser.id);
-    const chatRef = doc(db, "chats", chatId);
-    const chatSnap = await getDoc(chatRef);
-
-    if (!chatSnap.exists()) {
-      await setDoc(chatRef, {
-        users: [user.uid, otherUser.id],
-        createdAt: serverTimestamp(),
-        deletedFor: [],
-      });
-    } else {
-      const data = chatSnap.data();
-      if (data.deletedFor?.includes(user.uid)) {
-        await updateDoc(chatRef, {
-          deletedFor: data.deletedFor.filter((id) => id !== user.uid),
-        });
-      }
-    }
-
-    onSelectChat(chatId, otherUser);
-  };
 
   const softDeleteChat = async (chatId) => {
     const confirm = window.confirm(

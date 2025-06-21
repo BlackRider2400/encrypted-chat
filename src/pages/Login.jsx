@@ -1,20 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signInWithPopup,
-  sendPasswordResetEmail,
-} from "firebase/auth";
-import { auth, provider, db } from "../firebase";
-import {
-  doc,
-  setDoc,
-  getDocs,
-  collection,
-  query,
-  where,
-} from "firebase/firestore";
+import { login, register } from "../api/auth";
 
 export default function Login({ onLogin }) {
   const navigate = useNavigate();
@@ -35,77 +21,21 @@ export default function Login({ onLogin }) {
         return;
       }
 
-      // Check username uniqueness
-      const q = query(collection(db, "users"), where("name", "==", username));
-      const result = await getDocs(q);
-      if (!username || !result.empty) {
-        alert("Username must be unique and not empty.");
-        return;
-      }
-
       try {
-        const { user } = await createUserWithEmailAndPassword(
-          auth,
-          email,
-          password,
-        );
-        await setDoc(doc(db, "users", user.uid), {
-          email: user.email,
-          name: username,
-        });
-        onLogin(user);
+        const { data } = await register(email, password, username);
+        onLogin(data.token, password);
         navigate("/");
       } catch (err) {
         alert(err.message);
       }
     } else {
       try {
-        const { user } = await signInWithEmailAndPassword(
-          auth,
-          email,
-          password,
-        );
-        onLogin(user);
+        const { data } = await login(email, password);
+        onLogin(data.token, password);
         navigate("/");
       } catch (err) {
-        //alert(err.message);
+        alert(err.message);
       }
-    }
-  };
-
-  const handleGoogle = async () => {
-    try {
-      const result = await signInWithPopup(auth, provider).then(() => {
-        window.location.href = "/chatapp/";
-      });
-      const user = result.user;
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          email: user.email,
-          name: user.displayName || "",
-        },
-        { merge: true },
-      );
-      onLogin(user);
-      navigate("/");
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
-  const handleForgot = async () => {
-    if (!email) {
-      alert("Enter your email to reset password.");
-      return;
-    }
-    try {
-      await sendPasswordResetEmail(auth, email, {
-        url: "https://mylovelyserver.fun/chatapp/reset-password",
-      });
-      alert("Password reset email sent.");
-    } catch (err) {
-      alert(err.message);
     }
   };
 
@@ -163,19 +93,10 @@ export default function Login({ onLogin }) {
           )}
 
           <div className="flex justify-between items-center text-sm text-[#9b1859]">
-            {!isRegistering && (
-              <button
-                type="button"
-                onClick={handleForgot}
-                className="hover:underline"
-              >
-                Forgot password?
-              </button>
-            )}
             <button
               type="button"
               onClick={() => setIsRegistering(!isRegistering)}
-              className="hover:underline ml-auto"
+              className="hover:underline ml-auto w-full"
             >
               {isRegistering ? "I already have an account" : "Create account"}
             </button>
@@ -188,15 +109,6 @@ export default function Login({ onLogin }) {
             {isRegistering ? "Register" : "Login"}
           </button>
         </form>
-
-        <hr className="my-4 border-[#ff80c9]" />
-
-        <button
-          onClick={handleGoogle}
-          className="bg-white border border-[#ffd166] text-[#d97706] px-4 py-2 w-full rounded-full hover:bg-yellow-50 transition"
-        >
-          Continue with Google
-        </button>
       </div>
     </div>
   );
