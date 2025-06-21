@@ -11,24 +11,37 @@ import { me } from "./api/encryption.js";
 
 export default function App() {
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState("");
-
-  const onLogin = async (token, password) => {
-    localStorage.setItem("token", token);
-    try {
-      const { data } = await me();
-      setUser(data.name);
-      localStorage.setItem("id", data.id);
-      localStorage.setItem("name", data.name);
-      localStorage.setItem("public_key", data.publicKey);
-      localStorage.setItem("private_key", data.privateKey);
-    } catch (err) {
-      alert(err);
-    }
-  };
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    setLoading(false);
+    const fetchUser = async () => {
+      const token = localStorage.getItem("token");
+      const name = localStorage.getItem("name");
+      const keysValid = ["id", "public_key", "private_key"].every((k) =>
+        localStorage.getItem(k),
+      );
+
+      if (!token || !keysValid) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data } = await me();
+
+        if (data.name === name) {
+          setUser(data.name);
+        } else {
+          console.warn("User mismatch between token and localStorage");
+        }
+      } catch (e) {
+        console.error("Token invalid or expired", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
   }, []);
 
   if (loading) return <div className="p-4">Loading…</div>;
@@ -39,9 +52,15 @@ export default function App() {
         <Routes>
           <Route
             path="/"
-            element={user ? <ChatApp user={user} /> : <Navigate to="/login" />}
+            element={
+              user ? (
+                <ChatApp user={user} setUser={setUser} />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
           />
-          <Route path="/login" element={<Login onLogin={onLogin} />} />
+          <Route path="/login" element={<Login />} />
           <Route path="*" element={<Navigate to={user ? "/" : "/login"} />} />
         </Routes>
       </Router>

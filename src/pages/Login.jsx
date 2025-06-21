@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { login, register } from "../api/auth";
+import { me } from "../api/encryption";
 
-export default function Login({ onLogin }) {
+export default function Login() {
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
@@ -15,27 +16,26 @@ export default function Login({ onLogin }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (isRegistering) {
-      if (password !== confirmPass) {
-        alert("Passwords do not match");
-        return;
-      }
+    try {
+      const { data } = isRegistering
+        ? await register(email, password, username)
+        : await login(email, password);
 
-      try {
-        const { data } = await register(email, password, username);
-        onLogin(data.token, password);
-        navigate("/");
-      } catch (err) {
-        alert(err.message);
-      }
-    } else {
-      try {
-        const { data } = await login(email, password);
-        onLogin(data.token, password);
-        navigate("/");
-      } catch (err) {
-        alert(err.message);
-      }
+      localStorage.setItem("token", data.token);
+    } catch (err) {
+      alert(err.message);
+    }
+
+    try {
+      const { data } = await me();
+      console.log("data name: " + data.name);
+      localStorage.setItem("id", data.id);
+      localStorage.setItem("name", data.name);
+      localStorage.setItem("public_key", data.publicKey);
+      localStorage.setItem("private_key", data.privateKey);
+      window.location.href = "/chatapp/";
+    } catch (err) {
+      alert("Error" + err);
     }
   };
 

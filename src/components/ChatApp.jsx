@@ -2,12 +2,18 @@ import { useState } from "react";
 import ChatList from "./ChatList";
 import ChatRoom from "./ChatRoom";
 
-export default function ChatApp({ user }) {
+export default function ChatApp({ user, setUser }) {
   const [chatId, setChat] = useState(null);
   const [partner, setPartner] = useState(null);
-  
+
   const signOut = () => {
-    
+    localStorage.removeItem("token");
+    localStorage.removeItem("id");
+    localStorage.removeItem("name");
+    localStorage.removeItem("public_key");
+    localStorage.removeItem("private_key");
+
+    setUser(null);
   };
 
   return chatId ? (
