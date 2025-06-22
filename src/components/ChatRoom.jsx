@@ -17,64 +17,11 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
   const [aesKey, setAesKey] = useState(null);
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
-
-  // const fetchMessages = async (limit = 50) => {
-  //   try {
-  //     const { data } = await getMessages(chatId, limit);
-  //     const decryptedMessages = await Promise.all(
-  //       data.map(async (message) => {
-  //         try {
-  //           const decryptedContent = await decryptAESGCM(
-  //             message.content,
-  //             aesKey,
-  //           );
-  //           return {
-  //             ...message,
-  //             content: decryptedContent,
-  //           };
-  //         } catch (error) {
-  //           console.error(
-  //             `Decryption failed for message ID ${message.id}:`,
-  //             error,
-  //           );
-  //           return message;
-  //         }
-  //       }),
-  //     );
-  //     setMessages(decryptedMessages);
-  //   } catch (err) {
-  //     console.log(err);
-  //   }
-  // };
-
-  const fetchKeys = async () => {
-    try {
-      const encryptedPrivateKey = localStorage.getItem("private_key");
-      const password = localStorage.getItem("password");
-      if (encryptedPrivateKey === null || encryptedPrivateKey === "") {
-        console.error("PEM or password is missing.");
-        return;
-      }
-      const { data } = await getConversationKey(chatId);
-      console.log("conversation: " + data.id);
-      console.log("PEM starts with:", encryptedPrivateKey.slice(0, 40));
-      const decryptedPrivateKey = await decryptEncryptedPrivateKey(
-        encryptedPrivateKey,
-        password,
-      );
-      const encryptedKey = data.keyValue;
-      const aesKeyBuffer = await decryptRSA(encryptedKey, decryptedPrivateKey);
-      const decyrptedSymetricKey = await importAESKeyFromBuffer(aesKeyBuffer);
-      setAesKey(decyrptedSymetricKey);
-      fetchMessages();
-    } catch (err) {
-      console.log(err);
-    }
-  };
+  const wsRef = useRef(null);
 
   const fetchMessages = useCallback(
     async (limit = 50) => {
-      if (!aesKey) return; // ① wait for key
+      if (!aesKey) return;
       try {
         const { data } = await getMessages(chatId, limit);
         const decrypted = await Promise.all(
@@ -92,15 +39,43 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
 
         setMessages(ok);
         /* scroll to bottom after messages load */
-        queueMicrotask(() =>
-          scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }),
-        );
+        setMessages(ok);
+        setTimeout(() => {
+          scrollRef.current?.scrollTo({
+            top: scrollRef.current.scrollHeight,
+            behavior: "auto",
+          });
+        }, 0);
       } catch (e) {
         console.error("fetchMessages →", e);
       }
     },
     [aesKey, chatId],
   );
+
+  useEffect(() => {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }, 0);
+  }, [messages]);
+
+  useEffect(() => {
+    if (aesKey) {
+      fetchMessages();
+
+      // Optional: scroll + focus after first fetch
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        scrollRef.current?.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: "auto",
+        });
+      }, 150);
+    }
+  }, [aesKey, fetchMessages]);
 
   useEffect(() => {
     const pem = localStorage.getItem("private_key");
@@ -127,46 +102,74 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
   }, [chatId]);
 
   useEffect(() => {
-    if (aesKey) fetchMessages();
-  }, [aesKey, fetchMessages]);
+    if (!aesKey) return;
 
-  // useEffect(() => {
-  //   if (!aesKey) return;
+    const ws = new WebSocket("ws://localhost:8080"); // Replace with your WebSocket server URL
+    wsRef.current = ws;
 
-  //   fetchMessages();
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: "subscribe", chatId }));
+    };
 
-  //   setTimeout(() => {
-  //     textareaRef.current?.focus();
-  //     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  //   }, 100);
-  // }, [aesKey]);
+    ws.onmessage = async (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "new_message" && msg.chatId === chatId) {
+          try {
+            const plain = await decryptAESGCM(msg.content, aesKey);
+            const newMsg = {
+              ...msg,
+              content: plain,
+              timestamp: msg.timestamp || new Date().toISOString(),
+              author: { id: msg.userId },
+            };
+            setMessages((prev) => [...prev, newMsg]);
 
-  // useEffect(() => {
-  //   fetchKeys();
+            setTimeout(() => {
+              scrollRef.current?.scrollTo({
+                top: scrollRef.current.scrollHeight,
+                behavior: "smooth",
+              });
+            }, 0);
+          } catch (err) {
+            console.warn("Failed to decrypt incoming message:", err);
+          }
+        }
+      } catch (e) {
+        console.error("WebSocket msg error:", e);
+      }
+    };
 
-  //   setTimeout(() => {
-  //     textareaRef.current?.focus();
-  //   }, 300);
+    ws.onerror = (err) => console.error("WebSocket error:", err);
+    ws.onclose = () => console.log("WebSocket closed");
 
-  //   // TODO implement effect for setting up synchronizing for messages
-  //   setTimeout(
-  //     () =>
-  //       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }),
-  //     100,
-  //   );
-  // }, [chatId, user]);
+    return () => ws.close();
+  }, [aesKey, chatId]);
 
   const handleSend = async () => {
     const text = newMsg.trim();
     if (!text) return;
     const content = await encryptAESGCM(text, aesKey);
     try {
-      await sendMessage(content, chatId);
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(
+          JSON.stringify({
+            type: "message",
+            chatId,
+            content,
+            userId: user.id,
+            token: localStorage.getItem("token"),
+          }),
+        );
+      } else {
+        console.warn("WebSocket not connected, fallback to HTTP");
+        await sendMessage(content, chatId);
+      }
+      setNewMsg("");
+      textareaRef.current?.focus();
     } catch (err) {
       console.log(err);
     }
-    fetchMessages();
-    textareaRef.current?.focus();
   };
 
   const deleteMessage = async (id) => {
