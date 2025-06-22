@@ -1,14 +1,65 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
+import {
+  createConversation,
+  deleteConversation,
+  getConversations,
+} from "../api/conversations";
+import { getAllUsers } from "../api/users";
 
 export default function ChatList({ user, onSelectChat }) {
   const [allUsers, setAllUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
 
+  const fetchChatHistory = async () => {
+    try {
+      const currentUserId = parseInt(localStorage.getItem("id"), 10);
+      const { data } = await getConversations();
+
+      if (data) {
+        const modified = data.map((conv) => {
+          const cleanedName = conv.name
+            .replace(
+              new RegExp(`\\b${localStorage.getItem("name")}\\b`, "g"),
+              "",
+            )
+            .trim();
+
+          const other = conv.participants.find((p) => p.id !== currentUserId);
+
+          return {
+            ...conv,
+            name: cleanedName,
+            participant: other,
+          };
+        });
+
+        const sorted = modified.sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+        );
+
+        setChatHistory(sorted);
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
   useEffect(() => {
-    // TODO get all conversations for user
-  }, [user.uid]);
+    const fetchUsers = async () => {
+      try {
+        const { data } = await getAllUsers();
+        const filteredUsers = data.filter((u) => u.id !== user.id);
+        setAllUsers(filteredUsers);
+      } catch (err) {
+        console.log(err);
+      }
+    };
+
+    fetchUsers();
+    fetchChatHistory();
+  }, [user.id]);
 
   const softDeleteChat = async (chatId) => {
     const confirm = window.confirm(
@@ -16,32 +67,32 @@ export default function ChatList({ user, onSelectChat }) {
     );
     if (!confirm) return;
 
-    const chatRef = doc(db, "chats", chatId);
-    const chatSnap = await getDoc(chatRef);
-    const data = chatSnap.data();
-
-    const otherUserId = data.users.find((id) => id !== user.uid);
-    const alreadyDeleted = data.deletedFor || [];
-
-    if (alreadyDeleted.includes(otherUserId)) {
-      // Both deleted → permanently remove chat
-      const messagesRef = collection(db, "chats", chatId, "messages");
-      const messagesSnap = await getDocs(messagesRef);
-      await Promise.all(messagesSnap.docs.map((d) => deleteDoc(d.ref)));
-      await deleteDoc(chatRef);
-    } else {
-      // Soft delete for this user
-      await updateDoc(chatRef, {
-        deletedFor: arrayUnion(user.uid),
-      });
+    try {
+      await deleteConversation(chatId);
+      setChatHistory((prev) => prev.filter((chat) => chat.id !== chatId));
+    } catch (err) {
+      console.log(err);
     }
-
-    setChatHistory((prev) => prev.filter((chat) => chat.id !== chatId));
   };
 
   const filteredUsers = allUsers.filter((u) =>
     (u.name || u.email || "").toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  const startChat = async (u) => {
+    try {
+      const { data } = await createConversation(user.name + " " + u.name, [
+        user.id,
+        u.id,
+      ]);
+      onSelectChat(data.id, {
+        id: data.participants[1].id,
+        ...data.participants[1].name,
+      });
+    } catch (err) {
+      console.log(err);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-[#fff0f6] font-sans">
@@ -92,16 +143,16 @@ export default function ChatList({ user, onSelectChat }) {
                     <div
                       onClick={() =>
                         onSelectChat(chat.id, {
-                          id: chat.partnerId,
-                          ...chat.partner,
+                          id: chat.participant.id,
+                          name: chat.participant.name,
                         })
                       }
                       className="flex-1 text-left cursor-pointer"
                     >
-                      <div>{chat.partner.name || chat.partner.email}</div>
+                      <div>{chat.participant.name}</div>
                       <div className="text-xs text-[#c16a95] mt-1">
-                        {chat.lastTimestamp?.toDate
-                          ? format(chat.lastTimestamp.toDate(), "HH:mm")
+                        {chat.createdAt
+                          ? format(new Date(chat.createdAt), "d MMM HH:mm")
                           : ""}
                       </div>
                     </div>

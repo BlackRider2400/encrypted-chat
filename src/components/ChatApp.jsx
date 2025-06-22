@@ -12,6 +12,7 @@ export default function ChatApp({ user, setUser }) {
     localStorage.removeItem("name");
     localStorage.removeItem("public_key");
     localStorage.removeItem("private_key");
+    localStorage.removeItem("password");
 
     setUser(null);
   };

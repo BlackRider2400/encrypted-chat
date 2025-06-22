@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { login, register } from "../api/auth";
-import { me } from "../api/encryption";
+import { me } from "../api/users.js";
 
-export default function Login() {
+export default function Login({ setUser }) {
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
@@ -28,12 +28,15 @@ export default function Login() {
 
     try {
       const { data } = await me();
-      console.log("data name: " + data.name);
       localStorage.setItem("id", data.id);
       localStorage.setItem("name", data.name);
       localStorage.setItem("public_key", data.publicKey);
       localStorage.setItem("private_key", data.privateKey);
-      window.location.href = "/chatapp/";
+      localStorage.setItem("password", password);
+
+      setUser({ id: data.id, name: data.name });
+      //window.location.href = "/chatapp/";
+      navigate("/");
     } catch (err) {
       alert("Error" + err);
     }

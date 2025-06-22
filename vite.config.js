@@ -14,9 +14,9 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "robots.txt", "apple-touch-icon.png"],
       manifest: {
-        name: "SweetChat",
+        name: "SabrinaChat",
         short_name: "Chat",
-        description: "A sweet little Firebase chat app 💬",
+        description: "Encrypted chat app",
         theme_color: "#ff5ca2",
         background_color: "#fff0f6",
         display: "standalone",
