@@ -104,7 +104,7 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
   useEffect(() => {
     if (!aesKey) return;
 
-    const ws = new WebSocket("ws://localhost:8080"); // Replace with your WebSocket server URL
+    const ws = new WebSocket("wss://sabrinachat.mylovelyserver.fun/ws/"); // Replace with your WebSocket server URL
     wsRef.current = ws;
 
     ws.onopen = () => {

@@ -9,4 +9,9 @@ export const sendMessage = (message, chatId) =>
 export const getMessages = (chatId, limit = 50, offset = 0) =>
   api.get(`/Messages/conversation/${chatId}?limit=${limit}&offset=${offset}`);
 
-export const removeMessage = (id) => api.put(`/Messages/${id}`, "");
+export const removeMessage = (id) =>
+  api.put(`/Messages/${id}`, "", {
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
