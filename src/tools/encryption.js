@@ -51,7 +51,7 @@ export async function decryptRSA(base64Data, privateKey) {
     privateKey,
     encryptedBytes,
   );
-  return decrypted; // returns ArrayBuffer (for example, AES key)
+  return decrypted;
 }
 
 // Decrypts AES-GCM encrypted message
@@ -104,5 +104,5 @@ export async function encryptAESGCM(message, aesKey) {
   result.set(iv, 0);
   result.set(encryptedBytes, iv.length);
 
-  return btoa(String.fromCharCode(...result)); // Base64 for easy transport
+  return btoa(String.fromCharCode(...result)); // Base64
 }

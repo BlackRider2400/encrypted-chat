@@ -38,7 +38,7 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
         ok.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
         setMessages(ok);
-        /* scroll to bottom after messages load */
+        
         setMessages(ok);
         setTimeout(() => {
           scrollRef.current?.scrollTo({
@@ -47,7 +47,7 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
           });
         }, 0);
       } catch (e) {
-        console.error("fetchMessages →", e);
+        console.error("fetchMessages ", e);
       }
     },
     [aesKey, chatId],
@@ -66,7 +66,6 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
     if (aesKey) {
       fetchMessages();
 
-      // Optional: scroll + focus after first fetch
       setTimeout(() => {
         textareaRef.current?.focus();
         scrollRef.current?.scrollTo({
@@ -90,10 +89,9 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
           password,
         );
 
-        /* ‣ download & decrypt the chat’s symmetric AES key */
         const { data } = await getConversationKey(chatId);
         const aesBuf = await decryptRSA(data.keyValue, rsaKey);
-        const symKey = await importAESKeyFromBuffer(aesBuf); // now ["encrypt","decrypt"]
+        const symKey = await importAESKeyFromBuffer(aesBuf);
         setAesKey(symKey);
       } catch (e) {
         console.error("key-setup →", e);
@@ -104,7 +102,7 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
   useEffect(() => {
     if (!aesKey) return;
 
-    const ws = new WebSocket("wss://sabrinachat.mylovelyserver.fun/ws/"); // Replace with your WebSocket server URL
+    const ws = new WebSocket("wss://sabrinachat.mylovelyserver.fun/ws/");
     wsRef.current = ws;
 
     ws.onopen = () => {

@@ -40,6 +40,7 @@ export default function ChatList({ user, onSelectChat }) {
         );
 
         setChatHistory(sorted);
+        console.log(sorted);
       }
     } catch (err) {
       console.log(err);
@@ -157,9 +158,9 @@ export default function ChatList({ user, onSelectChat }) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {chat.unread > 0 && (
+                      {chat.numberOfUnreadMessages > 0 && (
                         <span className="text-sm bg-red-500 text-white rounded-full px-2 py-0.5 shadow">
-                          {chat.unread}
+                          {chat.numberOfUnreadMessages}
                         </span>
                       )}
                       <button
