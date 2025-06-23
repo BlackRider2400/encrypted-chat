@@ -35,11 +35,20 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
           }),
         );
         const ok = decrypted.filter((i) => i.content !== "[failed to decrypt]");
-        ok.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-        setMessages(ok);
-        
-        setMessages(ok);
+        setMessages((prev) => {
+          const combined = [...prev, ...ok];
+
+          const unique = Array.from(
+            new Map(combined.map((m) => [m.id, m])).values(),
+          );
+
+          unique.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+          return unique;
+        });
+
+        console.log(messages);
         setTimeout(() => {
           scrollRef.current?.scrollTo({
             top: scrollRef.current.scrollHeight,
@@ -111,28 +120,16 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
 
     ws.onmessage = async (event) => {
       try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "new_message" && msg.chatId === chatId) {
-          try {
-            const plain = await decryptAESGCM(msg.content, aesKey);
-            const newMsg = {
-              ...msg,
-              content: plain,
-              timestamp: msg.timestamp || new Date().toISOString(),
-              author: { id: msg.userId },
-            };
-            setMessages((prev) => [...prev, newMsg]);
+        setTimeout(() => {
+          fetchMessages(5);
+        }, 200);
 
-            setTimeout(() => {
-              scrollRef.current?.scrollTo({
-                top: scrollRef.current.scrollHeight,
-                behavior: "smooth",
-              });
-            }, 0);
-          } catch (err) {
-            console.warn("Failed to decrypt incoming message:", err);
-          }
-        }
+        setTimeout(() => {
+          scrollRef.current?.scrollTo({
+            top: scrollRef.current.scrollHeight,
+            behavior: "smooth",
+          });
+        }, 0);
       } catch (e) {
         console.error("WebSocket msg error:", e);
       }

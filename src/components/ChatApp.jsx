@@ -5,6 +5,12 @@ import ChatRoom from "./ChatRoom";
 export default function ChatApp({ user, setUser }) {
   const [chatId, setChat] = useState(null);
   const [partner, setPartner] = useState(null);
+  const [chatListKey, setChatListKey] = useState(0);
+
+  const handleBack = () => {
+    setChat(null);
+    setChatListKey((prev) => prev + 1); // trigger refresh
+  };
 
   const signOut = () => {
     localStorage.removeItem("token");
@@ -22,7 +28,7 @@ export default function ChatApp({ user, setUser }) {
       user={user}
       chatId={chatId}
       chatPartner={partner}
-      onBack={() => setChat(null)}
+      onBack={handleBack}
     />
   ) : (
     <div className="h-dvh bg-pink-50 flex flex-col">
@@ -42,6 +48,7 @@ export default function ChatApp({ user, setUser }) {
       <div className="flex-1 min-h-0">
         <ChatList
           user={user}
+          refreshTrigger={chatListKey}
           onSelectChat={(id, other) => {
             setChat(id);
             setPartner(other);

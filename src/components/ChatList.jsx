@@ -7,40 +7,52 @@ import {
 } from "../api/conversations";
 import { getAllUsers } from "../api/users";
 
-export default function ChatList({ user, onSelectChat }) {
+export default function ChatList({ refreshTrigger, user, onSelectChat }) {
   const [allUsers, setAllUsers] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
 
-  const fetchChatHistory = async () => {
+  const fetchUsers = async () => {
+    try {
+      const { data } = await getAllUsers();
+      const filteredUsers = data.filter((u) => u.id !== user.id);
+      setAllUsers(filteredUsers);
+      return filteredUsers;
+    } catch (err) {
+      console.log(err);
+    }
+    return [];
+  };
+
+  const fetchChatHistory = async (users) => {
     try {
       const currentUserId = parseInt(localStorage.getItem("id"), 10);
       const { data } = await getConversations();
 
       if (data) {
-        const modified = data.map((conv) => {
-          const cleanedName = conv.name
-            .replace(
-              new RegExp(`\\b${localStorage.getItem("name")}\\b`, "g"),
-              "",
-            )
-            .trim();
+        const modified = data
+          .filter((conv) => conv.participants.length > 1)
+          .map((conv) => {
+            const other = conv.participants.find((p) => p.id !== currentUserId);
+            const cleanedName = conv.name
+              .replace(
+                new RegExp(`\\b${localStorage.getItem("name")}\\b`, "g"),
+                "",
+              )
+              .trim();
 
-          const other = conv.participants.find((p) => p.id !== currentUserId);
-
-          return {
-            ...conv,
-            name: cleanedName,
-            participant: other,
-          };
-        });
+            return {
+              ...conv,
+              name: cleanedName,
+              participant: other,
+            };
+          });
 
         const sorted = modified.sort(
           (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
         );
 
         setChatHistory(sorted);
-        console.log(sorted);
       }
     } catch (err) {
       console.log(err);
@@ -48,19 +60,12 @@ export default function ChatList({ user, onSelectChat }) {
   };
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const { data } = await getAllUsers();
-        const filteredUsers = data.filter((u) => u.id !== user.id);
-        setAllUsers(filteredUsers);
-      } catch (err) {
-        console.log(err);
-      }
+    const fetchData = async () => {
+      const users = await fetchUsers();
+      await fetchChatHistory(users);
     };
-
-    fetchUsers();
-    fetchChatHistory();
-  }, [user.id]);
+    fetchData();
+  }, [user.id, refreshTrigger]);
 
   const softDeleteChat = async (chatId) => {
     const confirm = window.confirm(
@@ -150,7 +155,7 @@ export default function ChatList({ user, onSelectChat }) {
                       }
                       className="flex-1 text-left cursor-pointer"
                     >
-                      <div>{chat.participant.name}</div>
+                      <div>{chat.name}</div>
                       <div className="text-xs text-[#c16a95] mt-1">
                         {chat.createdAt
                           ? format(new Date(chat.createdAt), "d MMM HH:mm")
