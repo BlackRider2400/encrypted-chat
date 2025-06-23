@@ -18,12 +18,16 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
   const wsRef = useRef(null);
+  const messageCountRef = useRef(-1);
 
   const fetchMessages = useCallback(
-    async (limit = 50) => {
+    async (limit = 50, lazy = false, currentlen = 0) => {
       if (!aesKey) return;
+      const container = scrollRef.current;
+      const previousHeight = container.scrollHeight;
       try {
-        const { data } = await getMessages(chatId, limit);
+        let offset = lazy ? currentlen : 0;
+        const { data } = await getMessages(chatId, limit, offset);
         const decrypted = await Promise.all(
           data.map(async (m) => {
             try {
@@ -44,17 +48,22 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
           );
 
           unique.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
+          messageCountRef.current = unique.length;
           return unique;
         });
 
         console.log(messages);
         setTimeout(() => {
-          scrollRef.current?.scrollTo({
-            top: scrollRef.current.scrollHeight,
-            behavior: "auto",
-          });
-        }, 0);
+          if (lazy) {
+            const newHeight = container.scrollHeight;
+            container.scrollTop = newHeight - previousHeight;
+          } else {
+            container.scrollTo({
+              top: container.scrollHeight,
+              behavior: "smooth",
+            });
+          }
+        }, 100);
       } catch (e) {
         console.error("fetchMessages ", e);
       }
@@ -63,13 +72,20 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
   );
 
   useEffect(() => {
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: "smooth",
-      });
-    }, 0);
-  }, [messages]);
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      if (container.scrollTop === 0) {
+        console.log("Scrolled to top — fetching more...");
+        fetchMessages(50, true, messageCountRef.current);
+      }
+    };
+
+    container.addEventListener("scroll", handleScroll);
+
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [fetchMessages]);
 
   useEffect(() => {
     if (aesKey) {
@@ -77,10 +93,6 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
 
       setTimeout(() => {
         textareaRef.current?.focus();
-        scrollRef.current?.scrollTo({
-          top: scrollRef.current.scrollHeight,
-          behavior: "auto",
-        });
       }, 150);
     }
   }, [aesKey, fetchMessages]);
@@ -123,13 +135,6 @@ export default function ChatRoom({ user, chatId, chatPartner, onBack }) {
         setTimeout(() => {
           fetchMessages(5);
         }, 200);
-
-        setTimeout(() => {
-          scrollRef.current?.scrollTo({
-            top: scrollRef.current.scrollHeight,
-            behavior: "smooth",
-          });
-        }, 0);
       } catch (e) {
         console.error("WebSocket msg error:", e);
       }
